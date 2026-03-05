@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Posture Detection</title>
+    <style>
+        /* Minimal styling - you'll replace this with your design */
+        body {
+            margin: 0;
+            padding: 20px;
+        }
+        #video {
+            width: 640px;
+            height: 480px;
+        }
+        #status {
+            font-size: 20px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <video id="video" autoplay></video>
+    <div id="status">Starting camera...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+
+        // Initialize MediaPipe Pose
+        const pose = new Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        });
+
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        pose.onResults(checkPosture);
+
+        // Start camera
+        const camera = new Camera(video, {
+            onFrame: async () => {
+                await pose.send({image: video});
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+
+        function checkPosture(results) {
+            if (results.poseLandmarks) {
+                // Get key points
+                const leftShoulder = results.poseLandmarks[11];
+                const rightShoulder = results.poseLandmarks[12];
+                const leftEar = results.poseLandmarks[7];
+                const rightEar = results.poseLandmarks[8];
+                const nose = results.poseLandmarks[0];
+                
+                // Simple posture check: are shoulders level?
+                const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
+                
+                // Check forward head posture
+                const avgEarY = (leftEar.y + rightEar.y) / 2;
+                const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+                const headForward = avgEarY > avgShoulderY - 0.1;
+                
+                if (shoulderDiff < 0.05 && !headForward) {
+                    status.textContent = "Good Posture ✓";
+                    status.style.color = "green";
+                } else {
+                    status.textContent = "Bad Posture - Sit up straight!";
+                    status.style.color = "red";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
