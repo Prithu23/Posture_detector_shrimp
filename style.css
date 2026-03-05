@@ -1,0 +1,133 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial Black', Arial, sans-serif;
+    background: #f5f5f5;
+    padding: 15px;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Title */
+.title {
+    font-size: 48px;
+    font-weight: 900;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.title-normal {
+    color: #000;
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: normal;
+}
+
+.title-shrimp {
+    color: #ff6363;
+    font-family: 'Arial Black', Arial, sans-serif;
+    filter: drop-shadow(4px 4px 6px rgba(200, 50, 50, 0.7));
+}
+
+/* Stats Container */
+.stats {
+    display: flex;
+    gap: 60px;
+    margin-bottom: 15px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.stat-item {
+    color: #000;
+}
+
+/* Buttons */
+.buttons {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 15px;
+}
+
+button {
+    padding: 12px 40px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #F5DEB3;
+    background: #ff9599;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+button:hover {
+    background: #ff9599;
+    transform: scale(1.05);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Main Content */
+.content {
+    display: flex;
+    gap: 60px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 1200px;
+    flex: 1;
+    margin-top: -30px;
+}
+
+/* Webcam Box */
+.webcam-box {
+    width: 450px;
+    height: 340px;
+    background: white;
+    border: 12px solid #ff9599;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    font-size: 16px;
+    margin-bottom: 0px;
+}
+
+/* Shrimp Container */
+.shrimp-container {
+    position: relative;
+    width: 480px;
+    height: 480px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+#shrimp {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Footer Message */
+.footer {
+    position: fixed;
+    bottom: 20px;
+    right: 40px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #000;
+    letter-spacing: 1px;
+}

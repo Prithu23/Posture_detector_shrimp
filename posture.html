@@ -1,85 +1,128 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Posture Detection</title>
-    <style>
-        /* Minimal styling - you'll replace this with your design */
-        body {
-            margin: 0;
-            padding: 20px;
-        }
-        #video {
-            width: 640px;
-            height: 480px;
-        }
-        #status {
-            font-size: 20px;
-            margin-top: 10px;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Are You Shrimpin'?</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <video id="video" autoplay></video>
-    <div id="status">Starting camera...</div>
+    <!-- Title -->
+    <div class="title">
+        <span class="title-normal">ARE YOU </span>
+        <span class="title-shrimp">SHRIMPIN' ?</span>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-item">Time: <span id="total-time">00:00:00</span></div>
+        <div class="stat-item">Shrimp counter: <span id="shrimp-count">0</span></div>
+        <div class="stat-item">Session counter: <span id="session-count">0</span></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="buttons">
+        <button id="start-btn">START</button>
+        <button id="stop-btn" disabled>STOP</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <!-- Webcam Box -->
+        <div class="webcam-box">
+            <p>Webcam will appear here</p>
+        </div>
+
+        <!-- Shrimp Animation -->
+        <div class="shrimp-container">
+            <img id="shrimp" src="shrimp1.png" alt="Coding Shrimp">
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">TAKE CARE OF YOURSELF!!</div>
+
     <script>
-        const video = document.getElementById('video');
-        const status = document.getElementById('status');
+        // Elements
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const totalTimeEl = document.getElementById('total-time');
+        const sessionCountEl = document.getElementById('session-count');
+        const shrimpCountEl = document.getElementById('shrimp-count');
+        const shrimpImg = document.getElementById('shrimp');
 
-        // Initialize MediaPipe Pose
-        const pose = new Pose({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-        });
+        // State
+        let sessionActive = false;
+        let totalSeconds = 0;
+        let sessionCount = 0;
+        let shrimpCount = 0;
+        let timerInterval = null;
+        let animationInterval = null;
+        let currentFrame = 1;
 
-        pose.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
-        pose.onResults(checkPosture);
-
-        // Start camera
-        const camera = new Camera(video, {
-            onFrame: async () => {
-                await pose.send({image: video});
-            },
-            width: 640,
-            height: 480
-        });
-        camera.start();
-
-        function checkPosture(results) {
-            if (results.poseLandmarks) {git 
-                // Get key points
-                const leftShoulder = results.poseLandmarks[11];
-                const rightShoulder = results.poseLandmarks[12];
-                const leftEar = results.poseLandmarks[7];
-                const rightEar = results.poseLandmarks[8];
-                const nose = results.poseLandmarks[0];
-                
-                // Simple posture check: are shoulders level?
-                const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
-                
-                // Check forward head posture
-                const avgEarY = (leftEar.y + rightEar.y) / 2;
-                const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
-                const headForward = avgEarY > avgShoulderY - 0.1;
-                
-                if (shoulderDiff < 0.05 && !headForward) {
-                    status.textContent = "Good Posture ✓";
-                    status.style.color = "green";
-                } else {
-                    status.textContent = "Bad Posture - Sit up straight!";
-                    status.style.color = "red";
-                }
-            }
+        // Format time as HH:MM:SS
+        function formatTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         }
+
+        // Start shrimp typing animation
+        function startShrimpAnimation() {
+            currentFrame = 1;
+            shrimpImg.src = 'shrimp1.png';
+            
+            animationInterval = setInterval(() => {
+                currentFrame = currentFrame === 1 ? 2 : 1;
+                shrimpImg.src = `shrimp${currentFrame}.png`;
+            }, 500);
+        }
+
+        // Stop shrimp animation
+        function stopShrimpAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            shrimpImg.src = 'shrimp1.png'; // Reset to frame 1
+        }
+
+        // Start session
+        startBtn.addEventListener('click', () => {
+            sessionActive = true;
+            sessionCount++;
+            sessionCountEl.textContent = sessionCount;
+            
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            
+            // Start timer
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                totalTimeEl.textContent = formatTime(totalSeconds);
+            }, 1000);
+            
+            // Start shrimp animation
+            startShrimpAnimation();
+        });
+
+        // Stop session
+        stopBtn.addEventListener('click', () => {
+            sessionActive = false;
+            
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            // Stop timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Stop shrimp animation
+            stopShrimpAnimation();
+        });
     </script>
 </body>
 </html>
