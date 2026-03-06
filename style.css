@@ -7,21 +7,20 @@
 body {
     font-family: 'Arial Black', Arial, sans-serif;
     background: #f5f5f5;
-    padding: 15px;
-    overflow: hidden;
-    height: 100vh;
+    padding: 15px 20px 80px 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
 }
 
 /* Title */
 .title {
     font-size: 48px;
     font-weight: 900;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .title-normal {
@@ -33,16 +32,19 @@ body {
 .title-shrimp {
     color: #ff6363;
     font-family: 'Arial Black', Arial, sans-serif;
-    filter: drop-shadow(4px 4px 6px rgba(200, 50, 50, 0.7));
+    filter: drop-shadow(2px 2px 3px rgba(184, 53, 53, 0.7));
 }
 
 /* Stats Container */
 .stats {
     display: flex;
     gap: 60px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     font-size: 20px;
     font-weight: bold;
+    flex-shrink: 0;
+    justify-content: center;
+    width: 100%;
 }
 
 .stat-item {
@@ -54,6 +56,9 @@ body {
     display: flex;
     gap: 30px;
     margin-bottom: 15px;
+    flex-shrink: 0;
+    justify-content: center;
+    width: 100%;
 }
 
 button {
@@ -81,19 +86,20 @@ button:disabled {
 /* Main Content */
 .content {
     display: flex;
-    gap: 60px;
+    gap: 5%;
     align-items: center;
     justify-content: center;
     width: 100%;
-    max-width: 1200px;
-    flex: 1;
-    margin-top: -30px;
+    max-width: 1400px;
+    margin-top: 10px;
 }
 
 /* Webcam Box */
 .webcam-box {
-    width: 450px;
-    height: 340px;
+    width: 35%;
+    max-width: 450px;
+    min-width: 350px;
+    height: 350px;
     background: white;
     border: 12px solid #ff9599;
     border-radius: 25px;
@@ -102,22 +108,25 @@ button:disabled {
     justify-content: center;
     color: #ccc;
     font-size: 16px;
-    margin-bottom: 0px;
+    flex-shrink: 0;
 }
 
 /* Shrimp Container */
 .shrimp-container {
     position: relative;
-    width: 480px;
-    height: 480px;
+    width: 45%;
+    max-width: 700px;
+    min-width: 500px;
+    height: 500px;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 #shrimp {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
 }
 

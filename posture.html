@@ -24,6 +24,7 @@
     <div class="buttons">
         <button id="start-btn">START</button>
         <button id="stop-btn" disabled>STOP</button>
+        <button id="reset-btn">RESET</button>
     </div>
 
     <!-- Main Content -->
@@ -46,6 +47,7 @@
         // Elements
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
+        const resetBtn = document.getElementById('reset-btn');
         const totalTimeEl = document.getElementById('total-time');
         const sessionCountEl = document.getElementById('session-count');
         const shrimpCountEl = document.getElementById('shrimp-count');
@@ -123,6 +125,30 @@
             // Stop shrimp animation
             stopShrimpAnimation();
         });
+
+        // Reset everything
+// Reset only time
+resetBtn.addEventListener('click', () => {
+    // Stop session if active
+    if (sessionActive) {
+        sessionActive = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        
+        stopShrimpAnimation();
+    }
+    
+    // Reset ONLY time counter
+    totalSeconds = 0;
+    
+    // Update display
+    totalTimeEl.textContent = '00:00:00';
+});
     </script>
 </body>
 </html>
