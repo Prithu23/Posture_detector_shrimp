@@ -13,142 +13,145 @@
         <span class="title-shrimp">SHRIMPIN' ?</span>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats Row -->
     <div class="stats">
-        <div class="stat-item">Time: <span id="total-time">00:00:00</span></div>
-        <div class="stat-item">Shrimp counter: <span id="shrimp-count">0</span></div>
-        <div class="stat-item">Session counter: <span id="session-count">0</span></div>
+        <div class="stat-item">
+            <span class="stat-label">Time:</span>
+            <span id="time">00:00:00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Shrimp counter:</span>
+            <span id="shrimp-counter">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Session:</span>
+            <span id="session">00:00:00</span>
+        </div>
     </div>
 
-    <!-- Buttons -->
+    <!-- Buttons Row -->
     <div class="buttons">
         <button id="start-btn">START</button>
-        <button id="stop-btn" disabled>STOP</button>
         <button id="reset-btn">RESET</button>
+        <button id="stop-btn">STOP</button>
     </div>
 
-    <!-- Main Content -->
-    <div class="content">
+    <!-- Main Content Area -->
+    <div class="main-content">
         <!-- Webcam Box -->
-        <div class="webcam-box">
-            <p>Webcam will appear here</p>
-        </div>
+        <div class="webcam-box"></div>
 
-        <!-- Shrimp Animation -->
+        <!-- Shrimp Image -->
         <div class="shrimp-container">
-            <img id="shrimp" src="shrimp1.png" alt="Coding Shrimp">
+            <img id="shrimp" src="shrimp1.png" alt="Shrimp">
         </div>
     </div>
 
     <!-- Footer -->
-    <div class="footer">TAKE CARE OF YOURSELF!!</div>
-
+    <div class="footer">TAKE CARE OF YOURSELF <3</div>
     <script>
-        // Elements
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const totalTimeEl = document.getElementById('total-time');
-        const sessionCountEl = document.getElementById('session-count');
-        const shrimpCountEl = document.getElementById('shrimp-count');
-        const shrimpImg = document.getElementById('shrimp');
+        // Get elements
+const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
+const resetBtn = document.getElementById('reset-btn');
+const timeEl = document.getElementById('time');
+const shrimpCounterEl = document.getElementById('shrimp-counter');
+const sessionEl = document.getElementById('session');
+const shrimpImg = document.getElementById('shrimp');
 
-        // State
-        let sessionActive = false;
-        let totalSeconds = 0;
-        let sessionCount = 0;
-        let shrimpCount = 0;
-        let timerInterval = null;
-        let animationInterval = null;
-        let currentFrame = 1;
+// State variables
+let totalSeconds = 0;
+let sessionCount = 0;  // Changed: session is now a counter
+let shrimpCount = 0;
+let timerInterval = null;
+let animationInterval = null;
+let currentFrame = 1;
 
-        // Format time as HH:MM:SS
-        function formatTime(seconds) {
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        }
+// Format time as HH:MM:SS
+function formatTime(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
-        // Start shrimp typing animation
-        function startShrimpAnimation() {
-            currentFrame = 1;
-            shrimpImg.src = 'shrimp1.png';
-            
-            animationInterval = setInterval(() => {
-                currentFrame = currentFrame === 1 ? 2 : 1;
-                shrimpImg.src = `shrimp${currentFrame}.png`;
-            }, 500);
-        }
+// Start shrimp animation
+function startAnimation() {
+    currentFrame = 1;
+    shrimpImg.src = 'shrimp1.png';
+    
+    animationInterval = setInterval(() => {
+        currentFrame = currentFrame === 1 ? 2 : 1;
+        shrimpImg.src = `shrimp${currentFrame}.png`;
+    }, 500);
+}
 
-        // Stop shrimp animation
-        function stopShrimpAnimation() {
-            if (animationInterval) {
-                clearInterval(animationInterval);
-                animationInterval = null;
-            }
-            shrimpImg.src = 'shrimp1.png'; // Reset to frame 1
-        }
+// Stop shrimp animation
+function stopAnimation() {
+    if (animationInterval) {
+        clearInterval(animationInterval);
+        animationInterval = null;
+    }
+    shrimpImg.src = 'shrimp1.png';
+}
 
-        // Start session
-        startBtn.addEventListener('click', () => {
-            sessionActive = true;
-            sessionCount++;
-            sessionCountEl.textContent = sessionCount;
-            
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            
-            // Start timer
-            timerInterval = setInterval(() => {
-                totalSeconds++;
-                totalTimeEl.textContent = formatTime(totalSeconds);
-            }, 1000);
-            
-            // Start shrimp animation
-            startShrimpAnimation();
-        });
+// START button
+startBtn.addEventListener('click', () => {
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    
+    // Increment session counter
+    sessionCount++;
+    sessionEl.textContent = sessionCount;
+    
+    // Start time timer
+    timerInterval = setInterval(() => {
+        totalSeconds++;
+        timeEl.textContent = formatTime(totalSeconds);
+    }, 1000);
+    
+    // Start shrimp animation
+    startAnimation();
+});
 
-        // Stop session
-        stopBtn.addEventListener('click', () => {
-            sessionActive = false;
-            
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            
-            // Stop timer
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            // Stop shrimp animation
-            stopShrimpAnimation();
-        });
-
-        // Reset everything
-// Reset only time
-resetBtn.addEventListener('click', () => {
-    // Stop session if active
-    if (sessionActive) {
-        sessionActive = false;
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        
-        stopShrimpAnimation();
+// STOP button
+stopBtn.addEventListener('click', () => {
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    
+    // Stop timer
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
     }
     
-    // Reset ONLY time counter
-    totalSeconds = 0;
-    
-    // Update display
-    totalTimeEl.textContent = '00:00:00';
+    // Stop animation
+    stopAnimation();
 });
+
+// RESET button (only resets time)
+resetBtn.addEventListener('click', () => {
+    // Stop if running
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    
+    stopAnimation();
+    
+    // Reset time only
+    totalSeconds = 0;
+    timeEl.textContent = '00:00:00';
+    
+    // Re-enable buttons
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+});
+
+// Initialize stop button as disabled
+stopBtn.disabled = true;
     </script>
+</body>
+</html>
 </body>
 </html>

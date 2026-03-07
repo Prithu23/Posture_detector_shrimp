@@ -5,138 +5,114 @@
 }
 
 body {
-    font-family: 'Arial Black', Arial, sans-serif;
-    background: #f5f5f5;
-    padding: 15px 20px 80px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
+    background: #fffaf0;
+    font-family: 'Arial Black', sans-serif;
+    padding: 40px;
 }
 
 /* Title */
 .title {
-    font-size: 48px;
-    font-weight: 900;
-    margin-bottom: 10px;
     text-align: center;
-    flex-shrink: 0;
+    font-size: 56px;
+    font-weight: bold;
+    margin-bottom: 30px;
 }
 
 .title-normal {
-    color: #000;
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'Times New Roman', serif;
+    color: #2a231c;
     font-weight: normal;
 }
 
 .title-shrimp {
-    color: #ff6363;
     font-family: 'Arial Black', Arial, sans-serif;
-    filter: drop-shadow(2px 2px 3px rgba(184, 53, 53, 0.7));
+    color: #D85A52;
+    font-weight: 900;
+    filter: drop-shadow(3px 3px 1px rgb(251, 134, 134))
 }
 
-/* Stats Container */
+/* Stats Row */
 .stats {
     display: flex;
-    gap: 60px;
-    margin-bottom: 10px;
-    font-size: 20px;
-    font-weight: bold;
-    flex-shrink: 0;
+    flex-wrap: nowrap;
+    gap: 100px;
+    margin-bottom: 25px;
+    align-items: center;
     justify-content: center;
-    width: 100%;
 }
 
 .stat-item {
-    color: #000;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2a231c;
 }
 
-/* Buttons */
+.stat-label {
+    font-family: 'Times New Roman' sans-serif;
+}
+
+/* Buttons Row */
 .buttons {
     display: flex;
-    gap: 30px;
-    margin-bottom: 15px;
-    flex-shrink: 0;
+    gap: 90px;
+    margin-bottom: 35px;
     justify-content: center;
-    width: 100%;
 }
 
 button {
-    padding: 12px 40px;
+    background: #ff7b82;
+    color: #F5DEB3;
+    border: none;
+    padding: 15px 45px;
     font-size: 24px;
     font-weight: bold;
-    color: #F5DEB3;
-    background: #ff9599;
-    border: none;
-    border-radius: 15px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: all 0.3s;
+    font-family: 'Times New Roman', serif;
 }
 
 button:hover {
-    background: #ff9599;
-    transform: scale(1.05);
-}
-
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    background: #ff7b82;
 }
 
 /* Main Content */
-.content {
+.main-content {
     display: flex;
-    gap: 5%;
+    gap: 120px;
+    margin-left: 80px;
     align-items: center;
-    justify-content: center;
-    width: 100%;
-    max-width: 1400px;
-    margin-top: 10px;
 }
 
 /* Webcam Box */
 .webcam-box {
-    width: 35%;
-    max-width: 450px;
-    min-width: 350px;
-    height: 350px;
+    width: 400px;
+    height: 300px;
     background: white;
-    border: 12px solid #ff9599;
-    border-radius: 25px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ccc;
-    font-size: 16px;
-    flex-shrink: 0;
+    border: 15px solid #ff7b82;
+    border-radius: 30px;
 }
 
 /* Shrimp Container */
 .shrimp-container {
-    position: relative;
-    width: 45%;
-    max-width: 700px;
-    min-width: 500px;
-    height: 500px;
+    width: 400px;
+    height: 510px;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
 }
 
 #shrimp {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
 }
 
-/* Footer Message */
+/* Footer */
 .footer {
     position: fixed;
     bottom: 20px;
     right: 40px;
     font-size: 13px;
     font-weight: bold;
-    color: #000;
-    letter-spacing: 1px;
+    color: #2a231c;
 }
