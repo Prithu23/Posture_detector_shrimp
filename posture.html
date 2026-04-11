@@ -25,7 +25,7 @@
         </div>
         <div class="stat-item">
             <span class="stat-label">Session:</span>
-            <span id="session">00:00:00</span>
+            <span id="session">0</span>
         </div>
     </div>
 
@@ -36,10 +36,22 @@
         <button id="stop-btn">STOP</button>
     </div>
 
+    <!-- Shrimping Alert Banner -->
+    <div id="shrimp-alert" class="shrimp-alert-banner"></div>
+
+    <!-- Camera Warning (outside webcam box) -->
+    <div id="camera-warning" class="camera-warning"></div>
+
     <!-- Main Content Area -->
     <div class="main-content">
-        <!-- Webcam Box -->
-        <div class="webcam-box"></div>
+        <!-- Webcam Side -->
+        <div class="webcam-side">
+            <div class="webcam-box">
+                <video id="webcam" autoplay playsinline muted></video>
+                <canvas id="overlay"></canvas>
+                <div id="status-message">Click START to begin</div>
+            </div>
+        </div>
 
         <!-- Shrimp Image -->
         <div class="shrimp-container">
@@ -49,8 +61,15 @@
 
     <!-- Footer -->
     <div class="footer">TAKE CARE OF YOURSELF <3</div>
-    <script>
-        // Get elements
+
+    <script type="module">
+import {
+    PoseLandmarker,
+    FilesetResolver,
+    DrawingUtils
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// --- DOM Elements ---
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const resetBtn = document.getElementById('reset-btn');
@@ -58,16 +77,89 @@ const timeEl = document.getElementById('time');
 const shrimpCounterEl = document.getElementById('shrimp-counter');
 const sessionEl = document.getElementById('session');
 const shrimpImg = document.getElementById('shrimp');
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const statusMsg = document.getElementById('status-message');
+const shrimpAlert = document.getElementById('shrimp-alert');
+const cameraWarning = document.getElementById('camera-warning');
 
-// State variables
+// --- State ---
 let totalSeconds = 0;
-let sessionCount = 0;  // Changed: session is now a counter
+let sessionCount = 0;
 let shrimpCount = 0;
 let timerInterval = null;
 let animationInterval = null;
 let currentFrame = 1;
+let poseLandmarker = null;
+let stream = null;
+let detecting = false;
+let lastVideoTime = -1;
+let isShrimping = false;
+let consecutiveFrames = 0;
+const REQUIRED_FRAMES = 10;
 
-// Format time as HH:MM:SS
+// --- Calibration ---
+let calibrating = false;
+let calibrationRatios = [];
+let baselineRatio = null;
+let entryRatio = 0.5;
+let exitRatio = 0.4;
+let calibrationCountdown = 3;
+let calibrationCountdownInterval = null;
+const CALIBRATION_FRAMES = 45; // ~3 seconds of data at ~15fps
+const ENTRY_OFFSET = 0.25;    // ratio must exceed baseline + this to trigger
+const EXIT_OFFSET = 0.15;     // ratio must drop below baseline + this to clear
+
+// --- Sound Alert ---
+let audioCtx = null;
+let alertSoundInterval = null;
+const ALERT_REPEAT_MS = 1000;
+
+function getAudioContext() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+
+function playAlertSound() {
+    try {
+        const actx = getAudioContext();
+        const now = actx.currentTime;
+
+        // Rapid warning beeps — three quick harsh buzzes
+        for (let i = 0; i < 3; i++) {
+            const t = now + i * 0.15;
+            const osc = actx.createOscillator();
+            const gain = actx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 800;
+            gain.gain.setValueAtTime(0.35, t);
+            gain.gain.setValueAtTime(0.35, t + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            osc.connect(gain).connect(actx.destination);
+            osc.start(t);
+            osc.stop(t + 0.1);
+        }
+    } catch (e) {
+        console.warn('Audio alert failed:', e);
+    }
+}
+
+function startAlertSound() {
+    playAlertSound();
+    if (alertSoundInterval) clearInterval(alertSoundInterval);
+    alertSoundInterval = setInterval(playAlertSound, ALERT_REPEAT_MS);
+}
+
+function stopAlertSound() {
+    if (alertSoundInterval) {
+        clearInterval(alertSoundInterval);
+        alertSoundInterval = null;
+    }
+}
+
+// --- Helpers ---
 function formatTime(seconds) {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -75,83 +167,340 @@ function formatTime(seconds) {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-// Start shrimp animation
-function startAnimation() {
+function setStatus(msg) {
+    statusMsg.textContent = msg;
+    statusMsg.style.display = msg ? 'block' : 'none';
+}
+
+function setAlert(msg) {
+    shrimpAlert.textContent = msg;
+    shrimpAlert.classList.toggle('visible', !!msg);
+}
+
+// --- Shrimp Animation ---
+function startShrimpAlert() {
+    if (animationInterval) return;
+    shrimpImg.classList.remove('shrimp-calm');
+    shrimpImg.classList.add('shrimp-alert');
     currentFrame = 1;
-    shrimpImg.src = 'shrimp1.png';
-    
     animationInterval = setInterval(() => {
         currentFrame = currentFrame === 1 ? 2 : 1;
         shrimpImg.src = `shrimp${currentFrame}.png`;
     }, 500);
 }
 
-// Stop shrimp animation
-function stopAnimation() {
+function stopShrimpAlert() {
     if (animationInterval) {
         clearInterval(animationInterval);
         animationInterval = null;
     }
+    shrimpImg.classList.remove('shrimp-alert');
+    shrimpImg.classList.add('shrimp-calm');
     shrimpImg.src = 'shrimp1.png';
 }
 
-// START button
-startBtn.addEventListener('click', () => {
+// --- MediaPipe Init ---
+async function initPoseLandmarker() {
+    setStatus('Loading pose model...');
+    try {
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: 'pose_landmarker_heavy.task',
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numPoses: 1
+        });
+        setStatus('');
+    } catch (err) {
+        console.error('Model load error:', err);
+        setStatus('Failed to load pose model. Are you using localhost?');
+    }
+}
+
+// --- Camera ---
+async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Camera not supported in this browser');
+        startBtn.disabled = false;
+        return false;
+    }
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = stream;
+        await video.play();
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        setStatus('');
+        return true;
+    } catch (err) {
+        console.error('Camera error:', err);
+        if (err.name === 'NotAllowedError') {
+            setStatus('Camera permission denied. Please allow camera access.');
+        } else {
+            setStatus('Could not access camera: ' + err.message);
+        }
+        startBtn.disabled = false;
+        return false;
+    }
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+    }
+    video.srcObject = null;
+}
+
+// --- Posture Analysis ---
+function computeShrimpRatio(landmarks) {
+    const noseY = landmarks[0].y;
+    const eyeAvgY = (landmarks[2].y + landmarks[5].y) / 2;
+    const shoulderAvgY = (landmarks[11].y + landmarks[12].y) / 2;
+
+    const eyesToNose = noseY - eyeAvgY;
+    const noseToShoulder = shoulderAvgY - noseY;
+
+    if (noseToShoulder <= 0.001) return 999;
+    return eyesToNose / noseToShoulder;
+}
+
+function handleCalibrationFrame(landmarks) {
+    const ratio = computeShrimpRatio(landmarks);
+    calibrationRatios.push(ratio);
+
+    if (calibrationRatios.length >= CALIBRATION_FRAMES) {
+        baselineRatio = calibrationRatios.reduce((a, b) => a + b, 0) / calibrationRatios.length;
+        entryRatio = baselineRatio + ENTRY_OFFSET;
+        exitRatio = baselineRatio + EXIT_OFFSET;
+        calibrating = false;
+        calibrationRatios = [];
+        statusMsg.classList.remove('calibrating');
+
+        if (calibrationCountdownInterval) {
+            clearInterval(calibrationCountdownInterval);
+            calibrationCountdownInterval = null;
+        }
+
+        setStatus('Calibrated! Monitoring...');
+        setTimeout(() => { if (detecting && !calibrating) setStatus(''); }, 2000);
+
+        // Start session timer after calibration
+        timerInterval = setInterval(() => {
+            totalSeconds++;
+            timeEl.textContent = formatTime(totalSeconds);
+        }, 1000);
+    }
+}
+
+function analyzePosture(landmarks) {
+    const ratio = computeShrimpRatio(landmarks);
+
+    const threshold = isShrimping ? exitRatio : entryRatio;
+    const shouldBeShrimping = ratio > threshold;
+
+    if (shouldBeShrimping) {
+        consecutiveFrames++;
+    } else {
+        consecutiveFrames = 0;
+    }
+
+    if (!isShrimping && consecutiveFrames >= REQUIRED_FRAMES) {
+        isShrimping = true;
+        consecutiveFrames = 0;
+        shrimpCount++;
+        shrimpCounterEl.textContent = shrimpCount;
+        document.body.classList.add('shrimping');
+        startShrimpAlert();
+        startAlertSound();
+        setAlert("You're shrimpin'! Sit up straight!");
+    } else if (isShrimping && consecutiveFrames === 0 && ratio <= exitRatio) {
+        isShrimping = false;
+        document.body.classList.remove('shrimping');
+        stopShrimpAlert();
+        stopAlertSound();
+        setAlert('');
+    }
+}
+
+// --- Detection Loop ---
+let noPoseTimer = null;
+
+function detectLoop() {
+    if (!detecting) return;
+
+    if (video.currentTime !== lastVideoTime && video.videoWidth > 0) {
+        lastVideoTime = video.currentTime;
+        const results = poseLandmarker.detectForVideo(video, performance.now());
+
+        if (results.landmarks && results.landmarks.length > 0) {
+            if (noPoseTimer) { clearTimeout(noPoseTimer); noPoseTimer = null; }
+            cameraWarning.textContent = '';
+            cameraWarning.classList.remove('visible');
+            const landmarks = results.landmarks[0];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (calibrating) {
+                handleCalibrationFrame(landmarks);
+            } else {
+                analyzePosture(landmarks);
+            }
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!noPoseTimer) {
+                noPoseTimer = setTimeout(() => {
+                    if (detecting) {
+                        cameraWarning.textContent = "Make sure you're visible to the camera";
+                        cameraWarning.classList.add('visible');
+                    }
+                }, 1000);
+            }
+        }
+    }
+
+    requestAnimationFrame(detectLoop);
+}
+
+// --- Button Handlers ---
+startBtn.addEventListener('click', async () => {
     startBtn.disabled = true;
     stopBtn.disabled = false;
-    
-    // Increment session counter
+
+    if (!poseLandmarker) {
+        await initPoseLandmarker();
+        if (!poseLandmarker) {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            return;
+        }
+    }
+
+    const cameraOk = await startCamera();
+    if (!cameraOk) {
+        stopBtn.disabled = true;
+        return;
+    }
+
+    // Increment session
     sessionCount++;
     sessionEl.textContent = sessionCount;
-    
-    // Start time timer
-    timerInterval = setInterval(() => {
-        totalSeconds++;
-        timeEl.textContent = formatTime(totalSeconds);
-    }, 1000);
-    
-    // Start shrimp animation
-    startAnimation();
+
+    // Start detection
+    detecting = true;
+    isShrimping = false;
+    consecutiveFrames = 0;
+    lastVideoTime = -1;
+    stopShrimpAlert();
+    stopAlertSound();
+
+    if (baselineRatio === null) {
+        // Calibration: sit straight for 3 seconds
+        calibrating = true;
+        calibrationRatios = [];
+        calibrationCountdown = 3;
+        statusMsg.classList.add('calibrating');
+        setStatus('Sit up straight... ' + calibrationCountdown);
+        calibrationCountdownInterval = setInterval(() => {
+            calibrationCountdown--;
+            if (calibrationCountdown > 0) {
+                setStatus('Sit up straight... ' + calibrationCountdown);
+            } else {
+                setStatus('Calibrating...');
+                clearInterval(calibrationCountdownInterval);
+                calibrationCountdownInterval = null;
+            }
+        }, 1000);
+    } else {
+        // Already calibrated (STOP→START), skip calibration
+        setStatus('');
+        timerInterval = setInterval(() => {
+            totalSeconds++;
+            timeEl.textContent = formatTime(totalSeconds);
+        }, 1000);
+    }
+
+    detectLoop();
 });
 
-// STOP button
 stopBtn.addEventListener('click', () => {
+    detecting = false;
+    calibrating = false;
     startBtn.disabled = false;
     stopBtn.disabled = true;
-    
-    // Stop timer
+
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    
-    // Stop animation
-    stopAnimation();
+    if (calibrationCountdownInterval) {
+        clearInterval(calibrationCountdownInterval);
+        calibrationCountdownInterval = null;
+    }
+
+    stopCamera();
+    stopShrimpAlert();
+    stopAlertSound();
+    statusMsg.classList.remove('calibrating');
+    document.body.classList.remove('shrimping');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (noPoseTimer) { clearTimeout(noPoseTimer); noPoseTimer = null; }
+    cameraWarning.textContent = '';
+    cameraWarning.classList.remove('visible');
+    setStatus('Click START to begin');
+    setAlert('');
 });
 
-// RESET button (only resets time)
 resetBtn.addEventListener('click', () => {
-    // Stop if running
+    detecting = false;
+    calibrating = false;
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    
-    stopAnimation();
-    
-    // Reset time only
+    if (calibrationCountdownInterval) {
+        clearInterval(calibrationCountdownInterval);
+        calibrationCountdownInterval = null;
+    }
+    stopCamera();
+    stopShrimpAlert();
+    stopAlertSound();
+    statusMsg.classList.remove('calibrating');
+    document.body.classList.remove('shrimping');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (noPoseTimer) { clearTimeout(noPoseTimer); noPoseTimer = null; }
+    cameraWarning.textContent = '';
+    cameraWarning.classList.remove('visible');
+    setAlert('');
+
+    // Reset all stats
     totalSeconds = 0;
+    shrimpCount = 0;
+    sessionCount = 0;
     timeEl.textContent = '00:00:00';
-    
-    // Re-enable buttons
+    shrimpCounterEl.textContent = '0';
+    sessionEl.textContent = '0';
+
+    // Clear calibration so next START recalibrates
+    baselineRatio = null;
+    entryRatio = 0.5;
+    exitRatio = 0.4;
+    calibrationRatios = [];
+
     startBtn.disabled = false;
     stopBtn.disabled = true;
+    isShrimping = false;
+    consecutiveFrames = 0;
+    setStatus('Click START to begin');
 });
 
-// Initialize stop button as disabled
+// Initialize
 stopBtn.disabled = true;
+stopShrimpAlert();
     </script>
-</body>
-</html>
 </body>
 </html>
