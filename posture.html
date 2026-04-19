@@ -1,157 +1,679 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Are You Shrimpin'?</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHRIMPIN'</title>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Outfit:wght@300;400;500;600&family=Pacifico&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #152238;
+    --bg-light: #1c2d47;
+    --card: #1e3150;
+    --card-border: rgba(255,255,255,0.06);
+    --cream: #F5F0E8;
+    --shrimp: #E8734A;
+    --shrimp-light: #F09070;
+    --ocean: #2A5F8F;
+    --text-dim: rgba(245,240,232,0.5);
+    --text-dimmer: rgba(245,240,232,0.3);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--cream);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ═══ WATER BACKGROUND ═══ */
+  canvas#water {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ═══ MAIN LAYOUT ═══ */
+  .app {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 48px;
+  }
+
+  /* ═══ TOP BAR ═══ */
+  .top-bar {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .top-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    visibility: hidden;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #4caf50;
+    box-shadow: 0 0 10px rgba(76,175,80,0.5);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .status-dot.bad { background: var(--shrimp); box-shadow: 0 0 10px rgba(232,115,74,0.5); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .status-label {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .top-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .icon-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--cream);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+  }
+
+  .icon-btn:hover {
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+  }
+
+  /* ═══ HEADER ═══ */
+  .header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .header h1 {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 56px;
+    letter-spacing: 6px;
+    color: var(--cream);
+    text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    margin-bottom: 4px;
+  }
+
+  .header .tagline {
+    font-family: 'Pacifico', cursive;
+    font-size: 18px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* ═══ MAIN CONTENT ═══ */
+  .content {
+    flex: 1;
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    position: relative;
+  }
+
+  /* ═══ CAMERA ═══ */
+  .camera-wrap {
+    position: relative;
+    width: 380px;
+    height: 320px;
+    flex-shrink: 0;
+  }
+
+  .camera-box {
+    width: 100%;
+    height: 100%;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: box-shadow 0.3s;
+  }
+
+  .camera-box:hover {
+    box-shadow: 0 12px 50px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .camera-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    border-radius: 24px;
+  }
+
+  .cam-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-dimmer);
+    font-size: 14px;
+  }
+
+  .cam-placeholder svg { opacity: 0.3; }
+
+  .cam-badge {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    padding: 6px 14px;
+    border-radius: 8px;
+    color: var(--cream);
+    z-index: 2;
+  }
+
+  .cam-rec {
+    position: absolute;
+    top: 18px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #ef4444;
+    letter-spacing: 1px;
+    z-index: 2;
+  }
+
+  .cam-rec-dot {
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ═══ RIGHT SIDE — SHRIMP + COUNTER ═══ */
+  .right-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    position: relative;
+  }
+
+  .counter-area {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-right: 10px;
+  }
+
+  .counter-label {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cream);
+  }
+
+  .counter-number {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 36px;
+    color: var(--shrimp);
+    text-shadow: 0 0 20px rgba(232,115,74,0.3);
+  }
+
+  .fishbowl {
+    width: 360px;
+    height: 360px;
+    position: relative;
+    user-select: none;
+    filter: drop-shadow(0 12px 40px rgba(0,0,0,0.3));
+  }
+
+  .fishbowl img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .fishbowl .shrimp-frame-1 { opacity: 1; }
+  .fishbowl .shrimp-frame-2 { opacity: 0; }
+
+  /* Counter below fishbowl */
+
+  /* ═══ BOTTOM BAR ═══ */
+  .bottom-bar {
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+  }
+
+  /* Timer */
+  .timer-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .timer-display {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 28px;
+    color: var(--cream);
+    letter-spacing: 3px;
+    min-width: 100px;
+  }
+
+  .timer-btns {
+    display: flex;
+    gap: 8px;
+  }
+
+  .t-btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .t-btn:hover { transform: translateY(-1px); }
+
+  .t-btn-start {
+    background: var(--shrimp);
+    color: var(--cream);
+  }
+  .t-btn-start:hover { background: var(--shrimp-light); box-shadow: 0 4px 15px rgba(232,115,74,0.3); }
+
+  .t-btn-reset {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-dim);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .t-btn-reset:hover { background: rgba(255,255,255,0.1); }
+
+  /* Posture text bottom right */
+  .posture-text {
+    font-family: 'Pacifico', cursive;
+    font-size: 15px;
+    color: var(--text-dim);
+    transition: all 0.3s;
+  }
+
+  .posture-text.bad {
+    color: var(--shrimp);
+  }
+
+  /* ═══ INTERACTIVE BUBBLES ON CLICK ═══ */
+  .click-bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.1);
+    pointer-events: none;
+    z-index: 5;
+    animation: clickBubbleRise 3s ease-out forwards;
+  }
+
+  @keyframes clickBubbleRise {
+    0% { transform: translateY(0) scale(1); opacity: 0.8; }
+    100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
+  }
+
+  /* ═══ AMBIENT PARTICLES ═══ */
+  .particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 3;
+  }
+</style>
 </head>
 <body>
-    <!-- Title -->
-    <div class="title">
-        <span class="title-normal">ARE YOU </span>
-        <span class="title-shrimp">SHRIMPIN' ?</span>
+
+<!-- Water canvas -->
+<canvas id="water"></canvas>
+
+<!-- App -->
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-label" id="status-label"></span>
+    </div>
+    <div class="top-right">
+      <button class="icon-btn" id="btn-sound" title="Toggle Sound">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-music" title="Toggle Music">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>SHRIMPIN'</h1>
+    <div class="tagline">sit tall, code longer</div>
+  </div>
+
+  <!-- Main content -->
+  <div class="content">
+    <!-- Camera -->
+    <div class="camera-wrap">
+      <div class="camera-box" id="camera-box">
+        <div class="cam-badge">live</div>
+        <div class="cam-rec" id="cam-rec" style="display:none;">
+          <div class="cam-rec-dot"></div>
+          <span>REC</span>
+        </div>
+        <video id="camera-feed" autoplay playsinline></video>
+        <div class="cam-placeholder" id="cam-placeholder">
+          <svg width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+            <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+          <span>click to start camera</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Stats Row -->
-    <div class="stats">
-        <div class="stat-item">
-            <span class="stat-label">Time:</span>
-            <span id="time">00:00:00</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Shrimp counter:</span>
-            <span id="shrimp-counter">0</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Session:</span>
-            <span id="session">00:00:00</span>
-        </div>
+    <!-- Right side: counter + fishbowl -->
+    <div class="right-side">
+      <div class="counter-area">
+        <span class="counter-label">Counter:</span>
+        <span class="counter-number" id="counter">00</span>
+      </div>
+      <div class="fishbowl" id="fishbowl">
+        <img src="shrimp1.png" alt="Shrimp coding" class="shrimp-frame-1" id="frame1">
+        <img src="shrimp2.png" alt="Shrimp coding" class="shrimp-frame-2" id="frame2">
+      </div>
     </div>
+  </div>
 
-    <!-- Buttons Row -->
-    <div class="buttons">
-        <button id="start-btn">START</button>
-        <button id="reset-btn">RESET</button>
-        <button id="stop-btn">STOP</button>
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <div class="timer-area">
+      <div class="timer-display" id="timer">00:00</div>
+      <div class="timer-btns">
+        <button class="t-btn t-btn-start" id="btn-start" onclick="toggleTimer()">Start</button>
+        <button class="t-btn t-btn-reset" onclick="resetTimer()">Reset</button>
+      </div>
     </div>
+    <div class="posture-text" id="posture-text">you're doing great, keep it up ~</div>
+  </div>
 
-    <!-- Main Content Area -->
-    <div class="main-content">
-        <!-- Webcam Box -->
-        <div class="webcam-box"></div>
+</div>
 
-        <!-- Shrimp Image -->
-        <div class="shrimp-container">
-            <img id="shrimp" src="shrimp1.png" alt="Shrimp">
-        </div>
-    </div>
+<script>
+  // ═══ WATER CANVAS ═══
+  const canvas = document.getElementById('water');
+  const ctx = canvas.getContext('2d');
+  let W, H;
 
-    <!-- Footer -->
-    <div class="footer">TAKE CARE OF YOURSELF <3</div>
-    <script>
-        // Get elements
-const startBtn = document.getElementById('start-btn');
-const stopBtn = document.getElementById('stop-btn');
-const resetBtn = document.getElementById('reset-btn');
-const timeEl = document.getElementById('time');
-const shrimpCounterEl = document.getElementById('shrimp-counter');
-const sessionEl = document.getElementById('session');
-const shrimpImg = document.getElementById('shrimp');
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
 
-// State variables
-let totalSeconds = 0;
-let sessionCount = 0;  // Changed: session is now a counter
-let shrimpCount = 0;
-let timerInterval = null;
-let animationInterval = null;
-let currentFrame = 1;
+  // Gentle wave layers
+  const waves = [
+    { y: 0.85, amp: 25, freq: 0.008, speed: 0.015, color: 'rgba(30,70,120,0.15)' },
+    { y: 0.88, amp: 20, freq: 0.012, speed: 0.02,  color: 'rgba(40,90,150,0.12)' },
+    { y: 0.91, amp: 15, freq: 0.015, speed: 0.025, color: 'rgba(50,110,170,0.10)' },
+  ];
 
-// Format time as HH:MM:SS
-function formatTime(seconds) {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-}
+  // Ambient floating particles
+  const particles = [];
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: Math.random() * 2000,
+      y: Math.random() * 1200,
+      r: 1 + Math.random() * 2,
+      speed: 0.2 + Math.random() * 0.5,
+      drift: (Math.random() - 0.5) * 0.3,
+      alpha: 0.05 + Math.random() * 0.12,
+    });
+  }
 
-// Start shrimp animation
-function startAnimation() {
-    currentFrame = 1;
-    shrimpImg.src = 'shrimp1.png';
-    
-    animationInterval = setInterval(() => {
-        currentFrame = currentFrame === 1 ? 2 : 1;
-        shrimpImg.src = `shrimp${currentFrame}.png`;
-    }, 500);
-}
+  let tick = 0;
 
-// Stop shrimp animation
-function stopAnimation() {
-    if (animationInterval) {
-        clearInterval(animationInterval);
-        animationInterval = null;
+  function drawWater() {
+    ctx.clearRect(0, 0, W, H);
+    tick++;
+
+    // Draw waves
+    waves.forEach(w => {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 4) {
+        const y = H * w.y + Math.sin(x * w.freq + tick * w.speed) * w.amp
+                           + Math.sin(x * w.freq * 0.5 + tick * w.speed * 0.7) * w.amp * 0.5;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = w.color;
+      ctx.fill();
+    });
+
+    // Draw particles
+    particles.forEach(p => {
+      p.y -= p.speed;
+      p.x += p.drift + Math.sin(tick * 0.02 + p.x * 0.01) * 0.3;
+      if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+      if (p.x < -10) p.x = W + 10;
+      if (p.x > W + 10) p.x = -10;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(drawWater);
+  }
+  drawWater();
+
+  // ═══ CLICK BUBBLES ═══
+  document.body.addEventListener('click', (e) => {
+    for (let i = 0; i < 3; i++) {
+      const bubble = document.createElement('div');
+      bubble.className = 'click-bubble';
+      const size = 8 + Math.random() * 18;
+      bubble.style.width = size + 'px';
+      bubble.style.height = size + 'px';
+      bubble.style.left = (e.clientX - size/2 + (Math.random()-0.5)*30) + 'px';
+      bubble.style.top = (e.clientY - size/2) + 'px';
+      bubble.style.animationDuration = (2 + Math.random()*2) + 's';
+      document.body.appendChild(bubble);
+      setTimeout(() => bubble.remove(), 4000);
     }
-    shrimpImg.src = 'shrimp1.png';
-}
+  });
 
-// START button
-startBtn.addEventListener('click', () => {
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    
-    // Increment session counter
-    sessionCount++;
-    sessionEl.textContent = sessionCount;
-    
-    // Start time timer
-    timerInterval = setInterval(() => {
-        totalSeconds++;
-        timeEl.textContent = formatTime(totalSeconds);
-    }, 1000);
-    
-    // Start shrimp animation
-    startAnimation();
-});
+  // ═══ SHRIMP ANIMATION (alternate frames) ═══
+  const frame1 = document.getElementById('frame1');
+  const frame2 = document.getElementById('frame2');
+  let currentFrame = 1;
 
-// STOP button
-stopBtn.addEventListener('click', () => {
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    
-    // Stop timer
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
+  setInterval(() => {
+    if (currentFrame === 1) {
+      frame1.style.opacity = '0';
+      frame2.style.opacity = '1';
+      currentFrame = 2;
+    } else {
+      frame1.style.opacity = '1';
+      frame2.style.opacity = '0';
+      currentFrame = 1;
     }
-    
-    // Stop animation
-    stopAnimation();
-});
+  }, 600);
 
-// RESET button (only resets time)
-resetBtn.addEventListener('click', () => {
-    // Stop if running
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
+  // Fishbowl gentle bob
+  const fishbowl = document.getElementById('fishbowl');
+  let bobTick = 0;
+  function bobFishbowl() {
+    bobTick += 0.02;
+    const y = Math.sin(bobTick) * 6;
+    const r = Math.sin(bobTick * 0.7) * 1.5;
+    fishbowl.style.transform = `translateY(${y}px) rotate(${r}deg)`;
+    requestAnimationFrame(bobFishbowl);
+  }
+  bobFishbowl();
+
+  // ═══ TIMER ═══
+  let timerRunning = false, timerSeconds = 0, timerInterval = null;
+
+  function toggleTimer() {
+    const btn = document.getElementById('btn-start');
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      btn.textContent = 'Start';
+    } else {
+      timerInterval = setInterval(() => { timerSeconds++; updateTimer(); }, 1000);
+      timerRunning = true;
+      btn.textContent = 'Pause';
     }
-    
-    stopAnimation();
-    
-    // Reset time only
-    totalSeconds = 0;
-    timeEl.textContent = '00:00:00';
-    
-    // Re-enable buttons
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-});
+  }
 
-// Initialize stop button as disabled
-stopBtn.disabled = true;
-    </script>
-</body>
-</html>
+  function resetTimer() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerSeconds = 0;
+    updateTimer();
+    document.getElementById('btn-start').textContent = 'Start';
+  }
+
+  function updateTimer() {
+    const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+    const s = (timerSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('timer').textContent = `${m}:${s}`;
+  }
+
+  // ═══ COUNTER (simulate with spacebar or click fishbowl) ═══
+  let shrimpCount = 0;
+
+  function triggerShrimp() {
+    shrimpCount++;
+    document.getElementById('counter').textContent = shrimpCount.toString().padStart(2, '0');
+
+    // Flash status
+    const dot = document.getElementById('status-dot');
+    const label = document.getElementById('status-label');
+    const postureText = document.getElementById('posture-text');
+
+    dot.classList.add('bad');
+    label.textContent = "shrimpin' detected!";
+    postureText.textContent = "straighten up, little shrimp!";
+    postureText.classList.add('bad');
+
+    setTimeout(() => {
+      dot.classList.remove('bad');
+      label.textContent = '';
+      postureText.textContent = "you're doing great, keep it up ~";
+      postureText.classList.remove('bad');
+    }, 2500);
+  }
+
+  fishbowl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    triggerShrimp();
+  });
+  fishbowl.style.cursor = 'pointer';
+
+  // Spacebar also triggers for demo
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      triggerShrimp();
+    }
+  });
+
+  // ═══ CAMERA ═══
+  document.getElementById('camera-box').addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      document.getElementById('camera-feed').srcObject = stream;
+      document.getElementById('cam-placeholder').style.display = 'none';
+      document.getElementById('cam-rec').style.display = 'flex';
+    } catch (e) {
+      document.getElementById('cam-placeholder').innerHTML =
+        '<span style="color:var(--shrimp);font-size:13px;">camera access denied</span>';
+    }
+  });
+
+  // ═══ SOUND/MUSIC BUTTONS (toggle visual only for now) ═══
+  document.getElementById('btn-sound').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.style.opacity = btn.style.opacity === '0.4' ? '1' : '0.4';
+  });
+  document.getElementById('btn-music').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.style.opacity = btn.style.opacity === '0.4' ? '1' : '0.4';
+  });
+</script>
+
 </body>
 </html>
