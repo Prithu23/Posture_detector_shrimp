@@ -26,6 +26,42 @@ import time
 import math
 import subprocess
 import threading
+import asyncio
+import json
+import websockets
+
+# ---------------------------------------------------------------------------
+# WebSocket Server
+# ---------------------------------------------------------------------------
+
+_ws_clients = set()
+_ws_loop = None
+
+async def _ws_handler(websocket):
+    _ws_clients.add(websocket)
+    try:
+        await websocket.wait_closed()
+    finally:
+        _ws_clients.discard(websocket)
+
+async def _ws_broadcast(data):
+    if _ws_clients:
+        msg = json.dumps(data)
+        await asyncio.gather(*[c.send(msg) for c in list(_ws_clients)], return_exceptions=True)
+
+def _run_ws_server():
+    global _ws_loop
+    _ws_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(_ws_loop)
+    async def _serve():
+        async with websockets.serve(_ws_handler, "localhost", 8765):
+            print("WebSocket server running on ws://localhost:8765")
+            await asyncio.Future()
+    _ws_loop.run_until_complete(_serve())
+
+def broadcast(data):
+    if _ws_loop and _ws_clients:
+        asyncio.run_coroutine_threadsafe(_ws_broadcast(data), _ws_loop)
 
 
 # ---------------------------------------------------------------------------
@@ -83,14 +119,14 @@ SKELETON_CONNECTIONS = [
 
 
 # ---------------------------------------------------------------------------
-# Sensitivity presets
+# Sensitivity presets  (entry_offset, exit_offset, required_frames)
+# Offsets are added to the baseline ratio — larger ratio = more hunched
 # ---------------------------------------------------------------------------
 
 SENSITIVITY = {
-    #               entry_offset, exit_offset, required_frames
-    "strict":  (10, 3, 8),
-    "normal":  (15, 5, 10),
-    "relaxed": (20, 8, 15),
+    "strict":  (0.05, 0.02, 8),
+    "normal":  (0.08, 0.04, 10),
+    "relaxed": (0.12, 0.06, 15),
 }
 
 
@@ -103,12 +139,14 @@ class PostureDetector:
         # Calibration state
         self.calibrated = False
         self.calibration_data = []
-        self.calibration_wait_start = None  # for the 3-second countdown
-        self.baseline_angle = None
+        self.calibration_tilt_data = []
+        self.calibration_wait_start = None
+        self.baseline_ratio = None
+        self.baseline_tilt = None
 
         # Thresholds (set after calibration)
-        self.entry_threshold = 35.0
-        self.exit_threshold = 25.0
+        self.entry_threshold = 999.0
+        self.exit_threshold = 999.0
         self.required_frames = 10
 
         # Detection state
@@ -130,84 +168,64 @@ class PostureDetector:
         self.sensitivity = level
         entry_off, exit_off, req = SENSITIVITY[level]
         self.required_frames = req
-        if self.baseline_angle is not None:
-            self.entry_threshold = self.baseline_angle + entry_off
-            self.exit_threshold = self.baseline_angle + exit_off
+        if self.baseline_ratio is not None:
+            self.entry_threshold = self.baseline_ratio + entry_off
+            self.exit_threshold = self.baseline_ratio + exit_off
 
     def reset_calibration(self):
         self.calibrated = False
         self.calibration_data = []
+        self.calibration_tilt_data = []
         self.calibration_wait_start = None
-        self.baseline_angle = None
+        self.baseline_ratio = None
+        self.baseline_tilt = None
+        self.entry_threshold = 999.0
+        self.exit_threshold = 999.0
         self.is_shrimping = False
         self.consecutive_bad = 0
         self.bad_posture_start = None
 
-    # --- math helpers ---
-
-    @staticmethod
-    def _calc_angle(a, b, c):
-        """Angle at vertex b formed by points a-b-c, in degrees."""
-        ba = (a.x - b.x, a.y - b.y)
-        bc = (c.x - b.x, c.y - b.y)
-        dot = ba[0] * bc[0] + ba[1] * bc[1]
-        mag_a = math.sqrt(ba[0] ** 2 + ba[1] ** 2)
-        mag_c = math.sqrt(bc[0] ** 2 + bc[1] ** 2)
-        if mag_a == 0 or mag_c == 0:
-            return 0.0
-        cos_angle = max(-1.0, min(1.0, dot / (mag_a * mag_c)))
-        return math.degrees(math.acos(cos_angle))
-
     # --- posture metrics ---
 
-    def _calc_neck_angle(self, lm):
-        """Average ear-shoulder-hip angle (left + right)."""
-        left = self._calc_angle(lm[LEFT_EAR], lm[LEFT_SHOULDER], lm[LEFT_HIP])
-        right = self._calc_angle(lm[RIGHT_EAR], lm[RIGHT_SHOULDER], lm[RIGHT_HIP])
-        return (left + right) / 2.0
+    def _calc_shrimp_ratio(self, lm):
+        """eyesToNose / noseToShoulder — increases when hunching forward."""
+        nose_y = lm[NOSE].y
+        eye_avg_y = (lm[LEFT_EYE].y + lm[RIGHT_EYE].y) / 2.0
+        shoulder_avg_y = (lm[LEFT_SHOULDER].y + lm[RIGHT_SHOULDER].y) / 2.0
+        eyes_to_nose = nose_y - eye_avg_y
+        nose_to_shoulder = shoulder_avg_y - nose_y
+        if nose_to_shoulder <= 0.001:
+            return 999.0
+        return eyes_to_nose / nose_to_shoulder
 
-    def _calc_forward_head(self, lm):
-        """How far nose is ahead of shoulders (z-axis). Larger = more forward."""
-        mid_z = (lm[LEFT_SHOULDER].z + lm[RIGHT_SHOULDER].z) / 2.0
-        return mid_z - lm[NOSE].z
-
-    def _calc_shoulder_slope(self, lm):
-        """Absolute y-difference between shoulders (0 = level)."""
-        return abs(lm[LEFT_SHOULDER].y - lm[RIGHT_SHOULDER].y)
-
-    def _calc_ear_shoulder_dist(self, lm):
-        """Vertical distance from ear midpoint to shoulder midpoint."""
-        ear_y = (lm[LEFT_EAR].y + lm[RIGHT_EAR].y) / 2.0
-        shldr_y = (lm[LEFT_SHOULDER].y + lm[RIGHT_SHOULDER].y) / 2.0
-        return shldr_y - ear_y
+    def _calc_sideways_tilt(self, lm):
+        """Absolute ear y-difference — increases when leaning sideways."""
+        return abs(lm[LEFT_EAR].y - lm[RIGHT_EAR].y)
 
     # --- calibration ---
 
-    CALIBRATION_WAIT = 3.0   # seconds to wait before collecting
-    CALIBRATION_FRAMES = 45  # frames to collect
+    CALIBRATION_WAIT = 3.0
+    CALIBRATION_FRAMES = 45
 
     def calibrate_frame(self, landmarks):
         """Feed one frame during calibration. Returns True when done."""
         now = time.time()
-
-        # Start the countdown timer on first call
         if self.calibration_wait_start is None:
             self.calibration_wait_start = now
 
-        # Still in countdown?
         elapsed = now - self.calibration_wait_start
         if elapsed < self.CALIBRATION_WAIT:
             return False
 
-        # Collect data
-        self.calibration_data.append(self._calc_neck_angle(landmarks))
+        self.calibration_data.append(self._calc_shrimp_ratio(landmarks))
+        self.calibration_tilt_data.append(self._calc_sideways_tilt(landmarks))
 
         if len(self.calibration_data) >= self.CALIBRATION_FRAMES:
-            self.baseline_angle = sum(self.calibration_data) / len(self.calibration_data)
-            # Apply current sensitivity offsets
+            self.baseline_ratio = sum(self.calibration_data) / len(self.calibration_data)
+            self.baseline_tilt = sum(self.calibration_tilt_data) / len(self.calibration_tilt_data)
             entry_off, exit_off, _ = SENSITIVITY[self.sensitivity]
-            self.entry_threshold = self.baseline_angle + entry_off
-            self.exit_threshold = self.baseline_angle + exit_off
+            self.entry_threshold = self.baseline_ratio + entry_off
+            self.exit_threshold = self.baseline_ratio + exit_off
             self.calibrated = True
             self.session_start = time.time()
             return True
@@ -226,16 +244,15 @@ class PostureDetector:
 
     def analyze_posture(self, landmarks):
         """Analyze one frame. Returns a metrics dict."""
-        neck_angle = self._calc_neck_angle(landmarks)
-        forward_head = self._calc_forward_head(landmarks)
-        shoulder_slope = self._calc_shoulder_slope(landmarks)
-        ear_shoulder = self._calc_ear_shoulder_dist(landmarks)
+        ratio = self._calc_shrimp_ratio(landmarks)
+        tilt = self._calc_sideways_tilt(landmarks)
 
-        # Hysteresis: use different threshold depending on current state
-        if self.is_shrimping:
-            is_bad = neck_angle > self.exit_threshold
-        else:
-            is_bad = neck_angle > self.entry_threshold
+        # Bad posture = forward hunch OR sideways lean
+        entry_off, exit_off, _ = SENSITIVITY[self.sensitivity]
+        tilt_threshold = self.baseline_tilt + entry_off if self.is_shrimping else self.baseline_tilt + entry_off
+        forward_bad = ratio > (self.exit_threshold if self.is_shrimping else self.entry_threshold)
+        sideways_bad = tilt > (self.baseline_tilt + exit_off if self.is_shrimping else self.baseline_tilt + entry_off)
+        is_bad = forward_bad or sideways_bad
 
         if is_bad:
             self.consecutive_bad += 1
@@ -250,7 +267,7 @@ class PostureDetector:
             self.bad_posture_start = time.time()
 
         # Transition to good posture
-        if self.is_shrimping and self.consecutive_bad == 0 and neck_angle <= self.exit_threshold:
+        if self.is_shrimping and self.consecutive_bad == 0 and ratio <= self.exit_threshold:
             if self.bad_posture_start:
                 self.total_bad_seconds += time.time() - self.bad_posture_start
             self.is_shrimping = False
@@ -261,11 +278,8 @@ class PostureDetector:
             bad_seconds = time.time() - self.bad_posture_start
 
         return {
-            "neck_angle": neck_angle,
-            "baseline_angle": self.baseline_angle,
-            "forward_head": forward_head,
-            "shoulder_slope": shoulder_slope,
-            "ear_shoulder_dist": ear_shoulder,
+            "ratio": ratio,
+            "baseline_ratio": self.baseline_ratio,
             "is_shrimping": self.is_shrimping,
             "shrimp_count": self.shrimp_count,
             "bad_seconds": bad_seconds,
@@ -315,7 +329,7 @@ class PostureDetector:
         y = 30
         self._put_text(frame, f"Shrimp Count: {analysis['shrimp_count']}", (15, y), font, 0.65, (255, 255, 255))
         y += 28
-        self._put_text(frame, f"Neck Angle: {analysis['neck_angle']:.1f} (baseline: {analysis['baseline_angle']:.1f})",
+        self._put_text(frame, f"Ratio: {analysis['ratio']:.2f} (baseline: {analysis['baseline_ratio']:.2f})",
                        (15, y), font, 0.55, (200, 200, 200))
         y += 25
         status_text = "SHRIMPING!" if is_bad else "GOOD POSTURE"
@@ -391,6 +405,10 @@ class PostureDetector:
 def main():
     detector = PostureDetector(sensitivity="normal")
 
+    # Start WebSocket server in background thread
+    ws_thread = threading.Thread(target=_run_ws_server, daemon=True)
+    ws_thread.start()
+
     # Initialize MediaPipe Pose Landmarker
     print("Loading pose model...")
     base_options = python.BaseOptions(model_asset_path="pose_landmarker_heavy.task")
@@ -437,13 +455,23 @@ def main():
                 if done:
                     calibrating = False
                     calibrated_flash_until = time.time() + 2.0
-                    print(f"Calibrated! Baseline angle: {detector.baseline_angle:.1f} deg")
-                    print(f"  Entry threshold: {detector.entry_threshold:.1f} deg")
-                    print(f"  Exit threshold:  {detector.exit_threshold:.1f} deg")
+                    print(f"Calibrated! Baseline ratio: {detector.baseline_ratio:.3f}")
+                    print(f"  Entry threshold: {detector.entry_threshold:.3f}")
+                    print(f"  Exit threshold:  {detector.exit_threshold:.3f}")
+                broadcast({"status": "calibrating", "calibrated": False, "shrimp_count": 0, "is_shrimping": False})
             else:
                 analysis = detector.analyze_posture(landmarks)
                 detector.draw_skeleton(frame, landmarks, analysis)
                 detector.draw_overlay(frame, analysis)
+                broadcast({
+                    "status": "shrimping" if analysis["is_shrimping"] else "good",
+                    "calibrated": True,
+                    "is_shrimping": analysis["is_shrimping"],
+                    "shrimp_count": analysis["shrimp_count"],
+                    "ratio": round(analysis["ratio"], 3),
+                    "baseline_ratio": round(analysis["baseline_ratio"], 3),
+                    "bad_seconds": round(analysis["bad_seconds"], 1),
+                })
 
                 # "Calibrated!" flash
                 if time.time() < calibrated_flash_until:
@@ -453,17 +481,11 @@ def main():
                     detector._put_text(frame, text, ((w - sz[0]) // 2, h // 2),
                                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
 
-                # Sound alert (throttled to every 15 seconds)
-                if analysis["is_shrimping"]:
-                    if time.time() - detector.last_alert_time >= 15:
-                        play_alert_sound()
-                        detector.last_alert_time = time.time()
         else:
             # No pose detected
             detector._put_text(frame, "No pose detected - make sure you're visible",
                                (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255))
-
-        cv2.imshow("Are You Shrimpin'?", frame)
+            broadcast({"status": "no_pose", "calibrated": detector.calibrated, "is_shrimping": False, "shrimp_count": detector.shrimp_count})
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):

@@ -66,7 +66,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    visibility: hidden;
+    visibility: visible;
   }
 
   .status-dot {
@@ -96,24 +96,26 @@
     gap: 20px;
   }
 
-  .icon-btn {
+  .sound-btn {
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.08);
-    color: var(--cream);
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 10px;
     cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
     transition: all 0.2s;
-    font-size: 18px;
   }
 
-  .icon-btn:hover {
-    background: rgba(255,255,255,0.12);
-    transform: translateY(-1px);
+  .sound-btn:hover { background: rgba(255,255,255,0.12); }
+
+  .sound-btn.active {
+    background: var(--shrimp);
+    color: var(--cream);
+    border-color: var(--shrimp);
   }
 
   /* ═══ HEADER ═══ */
@@ -298,25 +300,19 @@
     padding-top: 20px;
   }
 
-  /* Timer */
-  .timer-area {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
+  .timer-area { display: flex; align-items: center; gap: 16px; }
 
   .timer-display {
     font-family: 'Dela Gothic One', cursive;
     font-size: 28px;
     color: var(--cream);
     letter-spacing: 3px;
-    min-width: 100px;
+    width: 110px;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
   }
 
-  .timer-btns {
-    display: flex;
-    gap: 8px;
-  }
+  .timer-btns { display: flex; gap: 8px; }
 
   .t-btn {
     font-family: 'Outfit', sans-serif;
@@ -332,21 +328,11 @@
   }
 
   .t-btn:hover { transform: translateY(-1px); }
-
-  .t-btn-start {
-    background: var(--shrimp);
-    color: var(--cream);
-  }
+  .t-btn-start { background: var(--shrimp); color: var(--cream); }
   .t-btn-start:hover { background: var(--shrimp-light); box-shadow: 0 4px 15px rgba(232,115,74,0.3); }
-
-  .t-btn-reset {
-    background: rgba(255,255,255,0.06);
-    color: var(--text-dim);
-    border: 1px solid rgba(255,255,255,0.08);
-  }
+  .t-btn-reset { background: rgba(255,255,255,0.06); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.08); }
   .t-btn-reset:hover { background: rgba(255,255,255,0.1); }
 
-  /* Posture text bottom right */
   .posture-text {
     font-family: 'Pacifico', cursive;
     font-size: 15px;
@@ -354,9 +340,7 @@
     transition: all 0.3s;
   }
 
-  .posture-text.bad {
-    color: var(--shrimp);
-  }
+  .posture-text.bad { color: var(--shrimp); }
 
   /* ═══ INTERACTIVE BUBBLES ON CLICK ═══ */
   .click-bubble {
@@ -401,12 +385,8 @@
       <span class="status-label" id="status-label"></span>
     </div>
     <div class="top-right">
-      <button class="icon-btn" id="btn-sound" title="Toggle Sound">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-      </button>
-      <button class="icon-btn" id="btn-music" title="Toggle Music">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      </button>
+      <button class="sound-btn active" id="btn-faah" onclick="selectSound('faah')">FAAH</button>
+      <button class="sound-btn" id="btn-vine" onclick="selectSound('vine')">VINE</button>
     </div>
   </div>
 
@@ -580,28 +560,44 @@
   }
   bobFishbowl();
 
+  // ═══ SOUND SELECTOR ═══
+  const sounds = {
+    faah: new Audio('faah.mp3'),
+    vine: new Audio('vine-boom.mp3'),
+  };
+  let selectedSound = 'faah';
+  let faahPlayed = false;
+
+  function playAlert() {
+    const s = sounds[selectedSound];
+    s.currentTime = 0;
+    s.play().catch(() => {});
+  }
+
   // ═══ TIMER ═══
   let timerRunning = false, timerSeconds = 0, timerInterval = null;
+  let shrimpOffset = 0, lastBackendCount = 0;
 
   function toggleTimer() {
     const btn = document.getElementById('btn-start');
     if (timerRunning) {
-      clearInterval(timerInterval);
-      timerRunning = false;
-      btn.textContent = 'Start';
+      clearInterval(timerInterval); timerRunning = false; btn.textContent = 'Start';
+      dot.classList.remove('bad');
+      label.textContent = 'paused';
+      postureText.classList.remove('bad');
+      postureText.textContent = 'monitoring paused ~';
     } else {
+      shrimpOffset = lastBackendCount - parseInt(document.getElementById('counter').textContent || '0');
       timerInterval = setInterval(() => { timerSeconds++; updateTimer(); }, 1000);
-      timerRunning = true;
-      btn.textContent = 'Pause';
+      timerRunning = true; btn.textContent = 'Pause';
     }
   }
 
   function resetTimer() {
-    clearInterval(timerInterval);
-    timerRunning = false;
-    timerSeconds = 0;
-    updateTimer();
+    clearInterval(timerInterval); timerRunning = false; timerSeconds = 0; updateTimer();
     document.getElementById('btn-start').textContent = 'Start';
+    document.getElementById('counter').textContent = '00';
+    shrimpOffset = lastBackendCount;
   }
 
   function updateTimer() {
@@ -609,45 +605,6 @@
     const s = (timerSeconds % 60).toString().padStart(2, '0');
     document.getElementById('timer').textContent = `${m}:${s}`;
   }
-
-  // ═══ COUNTER (simulate with spacebar or click fishbowl) ═══
-  let shrimpCount = 0;
-
-  function triggerShrimp() {
-    shrimpCount++;
-    document.getElementById('counter').textContent = shrimpCount.toString().padStart(2, '0');
-
-    // Flash status
-    const dot = document.getElementById('status-dot');
-    const label = document.getElementById('status-label');
-    const postureText = document.getElementById('posture-text');
-
-    dot.classList.add('bad');
-    label.textContent = "shrimpin' detected!";
-    postureText.textContent = "straighten up, little shrimp!";
-    postureText.classList.add('bad');
-
-    setTimeout(() => {
-      dot.classList.remove('bad');
-      label.textContent = '';
-      postureText.textContent = "you're doing great, keep it up ~";
-      postureText.classList.remove('bad');
-    }, 2500);
-  }
-
-  fishbowl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    triggerShrimp();
-  });
-  fishbowl.style.cursor = 'pointer';
-
-  // Spacebar also triggers for demo
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target === document.body) {
-      e.preventDefault();
-      triggerShrimp();
-    }
-  });
 
   // ═══ CAMERA ═══
   document.getElementById('camera-box').addEventListener('click', async () => {
@@ -662,17 +619,78 @@
     }
   });
 
-  // ═══ SOUND/MUSIC BUTTONS (toggle visual only for now) ═══
-  document.getElementById('btn-sound').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    btn.style.opacity = btn.style.opacity === '0.4' ? '1' : '0.4';
-  });
-  document.getElementById('btn-music').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    btn.style.opacity = btn.style.opacity === '0.4' ? '1' : '0.4';
-  });
+  // ═══ SOUND SELECTION ═══
+  function selectSound(name) {
+    selectedSound = name;
+    document.getElementById('btn-faah').classList.toggle('active', name === 'faah');
+    document.getElementById('btn-vine').classList.toggle('active', name === 'vine');
+  }
+
+  // ═══ PYTHON BACKEND WEBSOCKET ═══
+  const dot = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  const postureText = document.getElementById('posture-text');
+  const topLeft = document.querySelector('.top-left');
+
+  function connectWS() {
+    const ws = new WebSocket('ws://localhost:8765');
+
+    ws.onopen = () => {
+      topLeft.style.visibility = 'visible';
+      dot.classList.remove('bad');
+      label.textContent = 'Python backend connected';
+      postureText.textContent = 'calibrating — sit straight...';
+    };
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      lastBackendCount = data.shrimp_count || 0;
+
+      if (!timerRunning) return;
+
+      const display = Math.max(0, lastBackendCount - shrimpOffset);
+      document.getElementById('counter').textContent = display.toString().padStart(2, '0');
+
+      if (data.status === 'calibrating') {
+        dot.classList.remove('bad');
+        label.textContent = 'calibrating...';
+        postureText.classList.remove('bad');
+        postureText.textContent = 'sit straight for calibration ~';
+      } else if (data.status === 'no_pose') {
+        dot.classList.remove('bad');
+        label.textContent = 'no pose detected';
+        postureText.classList.remove('bad');
+        postureText.textContent = "make sure you're visible to the camera";
+      } else if (data.status === 'shrimping') {
+        dot.classList.add('bad');
+        label.textContent = "shrimpin' detected!";
+        postureText.classList.add('bad');
+        postureText.textContent = 'straighten up, little shrimp!';
+        if (!faahPlayed) {
+          playAlert();
+          faahPlayed = true;
+        }
+      } else if (data.status === 'good') {
+        dot.classList.remove('bad');
+        label.textContent = `ratio: ${data.ratio}`;
+        postureText.classList.remove('bad');
+        postureText.textContent = "you're doing great, keep it up ~";
+        faahPlayed = false;
+      }
+    };
+
+    ws.onclose = () => {
+      dot.classList.remove('bad');
+      label.textContent = 'backend disconnected — retrying...';
+      postureText.classList.remove('bad');
+      postureText.textContent = 'run posture_detector.py to connect';
+      setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  connectWS();
 </script>
 
 </body>
